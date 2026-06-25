@@ -1,0 +1,5 @@
+name: engram
+version: 1.0.0
+description: "Engram — bi-temporal long-term memory over HTTP. Injects recall (with the supersession chain: current value + what it replaced) each turn; consolidates turns asynchronously."
+pip_dependencies: []   # stdlib-only HTTP client (urllib)
+requires_env: []       # ENGRAM_URL/ENGRAM_NAMESPACE optional; defaults to http://127.0.0.1:9178
