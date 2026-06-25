@@ -88,6 +88,7 @@ class RecallReq(BaseModel):
     lean: bool = True
     n_chunks: int = 6
     session_id: Optional[str] = None  # when set, recall also surfaces this session's working memory
+    context_only: bool = False  # skip answer generation -> just the retrieved context (cheap, for injection)
 
 
 @app.get("/health")
@@ -199,7 +200,7 @@ def recall(req: RecallReq, user: str = Depends(auth)):
     # answer=True: also generate a real answer over the lean context + report the full-context baseline
     # token count, so the console's Q&A view can show the answer AND the token saving.
     return svc().recall(user, req.query, lean=req.lean, n_chunks=req.n_chunks,
-                        session_id=req.session_id, answer=True)
+                        session_id=req.session_id, answer=not req.context_only)
 
 
 @app.get("/v1/profile")
