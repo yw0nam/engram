@@ -48,6 +48,11 @@ class ConsolidationEngine:
         self.conflict = ConflictResolver(
             sem_embedder, config.conflict_sim_threshold,
             llm=llm if config.conflict_llm_escalation else None)
+        # Canonicalize free-form predicates onto existing per-subject slots so cross-predicate updates
+        # ("subscription"/Max -> "plan"/Pro) supersede deterministically via the exact-slot path (A1 fix).
+        from .resolver import SlotResolver
+
+        self.slot_resolver = SlotResolver(llm)
         self.profiles = ProfileBuilder()
 
     def consolidate(self, episodes: list[Episode]) -> dict[str, int]:
@@ -82,6 +87,9 @@ class ConsolidationEngine:
             for fact in ep_facts.get(ep.id, []):
                 fact.embedding = self.embedder.embed(fact.text)
                 live = [f for f in self.fact_store.values() if f.user_id == fact.user_id and f.is_live()]
+                # map this fact's predicate onto an existing same-attribute slot (A1) before conflict
+                # resolution, so the deterministic exact-slot path can supersede across phrasings.
+                fact.predicate = self.slot_resolver.canonical(fact, live)
                 action, invalidated = self.conflict.reconcile(fact, live)
                 for old in invalidated:
                     self.graph_builder.invalidate(old.id, fact.created_at)
