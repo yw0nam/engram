@@ -33,8 +33,9 @@ _RESOLVE_SYSTEM = (
 
 
 class SlotResolver:
-    def __init__(self, llm: Optional[LLM] = None) -> None:
+    def __init__(self, llm: Optional[LLM] = None, gate: float = 0.5) -> None:
         self.llm = llm
+        self.gate = gate  # min embedding similarity for a candidate slot to be worth adjudicating
         # (user, subject_lc, predicate_lc) -> canonical predicate. In-process memo so a repeated free-form
         # predicate isn't re-adjudicated every time; rebuildable from facts, so it need not persist.
         self.memo: dict[tuple[str, str, str], str] = {}
@@ -59,6 +60,15 @@ class SlotResolver:
                 continue
             seen.add(p)
             cands.append(f)
+        if not cands:
+            return fact.predicate
+        # only adjudicate candidates whose value embeds near the new fact (same attribute is the only case
+        # worth an LLM call); without embeddings, fall back to adjudicating all candidates.
+        if fact.embedding:
+            from ..util import cosine
+
+            near = [c for c in cands if c.embedding and cosine(fact.embedding, c.embedding) >= self.gate]
+            cands = near
         if not cands:
             return fact.predicate
         cand_preds = {c.predicate.lower() for c in cands} | {pred}
