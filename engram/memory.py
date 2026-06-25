@@ -886,8 +886,17 @@ class Memory:
             for f in all_facts:  # reinforcement-on-access: surfaced facts stay salient (spacing effect)
                 reinforce(f, self.config.access_boost)
             by_date = sorted(all_facts, key=lambda f: f.valid_at, reverse=True)  # latest first (updates)
-            fl = "\n".join(f"- [{fmt_date(f.valid_at)}] {f.text}" for f in by_date)
-            blocks.append(f"FACTS (current, dated):\n{fl}")
+            fl_lines = []
+            for f in by_date:
+                line = f"- [{fmt_date(f.valid_at)}] {f.text}"
+                # spec §recall: the immediate prior value follows the current one, unasked
+                # ("now X · prev Y until T"). Data is already in the supersede chain + invalid_at.
+                prev = self._prior_fact(f)
+                if prev is not None and prev.invalid_at is not None:
+                    line += f"  · prev: {prev.object or prev.text} (until {fmt_date(prev.invalid_at)})"
+                fl_lines.append(line)
+            fl = "\n".join(fl_lines)
+            blocks.append(f"FACTS (current, dated; '· prev' = the value it replaced, until that date):\n{fl}")
             # TIMELINE: the same facts oldest->newest with explicit gaps, so 'first / most-recent / how long
             # between' is read off the order and the date arithmetic is set up for the model rather than
             # left to mental math (the temporal category's main failure mode).
@@ -1031,6 +1040,7 @@ class Memory:
         summary: bool = False,
         verify: bool = False,
         intent: bool = False,
+        evolution: bool = True,
     ) -> str:
         """Assemble the hybrid read context (CLAUDE.md §3) for an LLM to answer from: live, date-stamped
         facts (conflict-resolved/current state) + the top-k raw session chunks (detail extraction drops).
@@ -1054,7 +1064,15 @@ class Memory:
         # Sort most-recent first: for knowledge-update questions the LLM should see the latest
         # fact (e.g., new job, new city) at the top — and trust it over older facts lower in the list.
         ranked_by_date = sorted(ranked, key=lambda x: x[0].valid_at, reverse=True)
-        fact_lines = [f"- [{fmt_date(f.valid_at)}] {f.text}" for f, _ in ranked_by_date]
+        fact_lines = []
+        for f, _ in ranked_by_date:
+            line = f"- [{fmt_date(f.valid_at)}] {f.text}"
+            # spec §recall: surface the immediate prior value WITH the current one, unasked
+            # ("now X · prev Y until T"). The supersede chain + invalid_at already hold this.
+            prev = self._prior_fact(f) if evolution else None
+            if prev is not None and prev.invalid_at is not None:
+                line += f"  · prev: {prev.object or prev.text} (until {fmt_date(prev.invalid_at)})"
+            fact_lines.append(line)
         facts_block = "\n".join(fact_lines) or "(none)"
 
         chunk_block = ""
@@ -1072,7 +1090,7 @@ class Memory:
             chunk_block = "\n\n".join(parts)
 
         result = (
-            f"FACTS (current, with dates):\n{facts_block}\n\n"
+            f"FACTS (current; '· prev' = the value it replaced, with the date it stopped being true):\n{facts_block}\n\n"
             f"RELEVANT CONVERSATIONS (with dates):\n{chunk_block}"
         ).strip()
         if timeline:
@@ -1168,6 +1186,13 @@ class Memory:
             if note.strip():
                 notes.append(f"{ent.name}: {note.strip()}")
         return notes
+
+    def _prior_fact(self, f: Fact) -> Optional[Fact]:
+        """The immediate predecessor in f's supersede chain — the value f replaced. Checks the hot
+        tier then cold tier, since a superseded fact may have been evicted (never deleted)."""
+        if not f.supersedes:
+            return None
+        return self.fact_store.get(f.supersedes) or self.cold_store.get(f.supersedes)
 
     def history(self, subject: str, predicate: str, user_id: str = "default") -> list[Fact]:
         user = self.resolver.resolve(user_id)
