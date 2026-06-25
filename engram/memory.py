@@ -432,6 +432,7 @@ class Memory:
         live = [x for x in self.fact_store.values() if x.user_id == user and x.is_live()]
         action, invalidated = self.engine.conflict.reconcile(f, live)
         for old in invalidated:
+            self.fact_store.upsert(old.id, old.embedding or [], old)  # persist invalidation
             self.engine.graph_builder.invalidate(old.id, f.created_at)
         if action != "duplicate":
             self.fact_store.upsert(f.id, f.embedding, f)
@@ -674,6 +675,8 @@ class Memory:
                 loser.invalid_at = max(winner.valid_at, loser.valid_at)
             loser.expired_at = now()
             winner.supersedes = loser.id
+            self.fact_store.upsert(loser.id, loser.embedding or [], loser)
+            self.fact_store.upsert(winner.id, winner.embedding or [], winner)
             self.engine.graph_builder.invalidate(loser.id, loser.expired_at)
             self._persona_cache.clear()
         c.status = "resolved"

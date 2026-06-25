@@ -92,6 +92,7 @@ class ConsolidationEngine:
                 fact.predicate = self.slot_resolver.canonical(fact, live)
                 action, invalidated = self.conflict.reconcile(fact, live)
                 for old in invalidated:
+                    self.fact_store.upsert(old.id, old.embedding or [], old)  # persist invalidation
                     self.graph_builder.invalidate(old.id, fact.created_at)
                     stats["invalidated"] += 1
                 if action == "duplicate":
