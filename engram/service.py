@@ -87,11 +87,20 @@ class MemoryService:
         self._hot: "OrderedDict[str, Memory]" = OrderedDict()
         self._locks: dict[str, threading.Lock] = {}
         self._g = threading.Lock()
+        self._pg_dsn = os.environ.get("ENGRAM_PG_DSN") if os.environ.get("ENGRAM_STORE") == "postgres" else None
 
     # --- namespace lifecycle ------------------------------------------------
     def _path(self, user: str) -> str:
         safe = "".join(c for c in user if c.isalnum() or c in "-_.") or "default"
         return os.path.join(self.data_dir, f"{safe}.pkl")
+
+    def _open(self, user: str) -> Memory:
+        if self._pg_dsn:
+            from .store.postgres_store import PostgresBackend
+
+            backend = PostgresBackend(self._pg_dsn, namespace=user)
+            return Memory.open_backend(backend, embedder=self.embedder, llm=self.llm, config=self.config)
+        return Memory.open(self._path(user), embedder=self.embedder, llm=self.llm, config=self.config)
 
     def lock(self, user: str) -> threading.Lock:
         with self._g:
@@ -104,7 +113,7 @@ class MemoryService:
             if user in self._hot:
                 self._hot.move_to_end(user)
                 return self._hot[user]
-        mem = Memory.open(self._path(user), embedder=self.embedder, llm=self.llm, config=self.config)
+        mem = self._open(user)
         with self._g:
             self._hot[user] = mem
             self._hot.move_to_end(user)
@@ -115,9 +124,14 @@ class MemoryService:
     def forget(self, user: str) -> dict:
         with self._g:
             self._hot.pop(user, None)
-        p = self._path(user)
-        if os.path.exists(p):
-            os.remove(p)
+        if self._pg_dsn:
+            from .store.postgres_store import PostgresBackend
+
+            PostgresBackend(self._pg_dsn, namespace=user).drop_namespace()
+        else:
+            p = self._path(user)
+            if os.path.exists(p):
+                os.remove(p)
         return {"ok": True, "message": f"all memory for '{user}' erased"}
 
     @property

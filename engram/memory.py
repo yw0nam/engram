@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from .config import Config
 from .consolidate import ConsolidationEngine, reinforce
@@ -116,18 +116,28 @@ class Memory:
         reranker=None,
         vector_store_factory: Callable[[], VectorStore] = InMemoryVectorStore,
         graph_store_factory: Callable[[], GraphStore] = InMemoryGraphStore,
+        store_backend: Optional[Any] = None,
     ) -> None:
         self.config = config or Config()
         self.embedder = embedder or HashingEmbedder(self.config.embed_dim)
         self.reranker = reranker  # optional cross-encoder; sharpens chunk/session retrieval (CLAUDE.md L1)
         self.llm = llm  # used by agentic retrieval (query decomposition) when enabled
 
-        self.episodes_doc = InMemoryDocStore()
-        self.episodes_vec = vector_store_factory()
-        self.fact_store = vector_store_factory()  # HOT tier: the fast, frequently-retrieved working set
-        self.cold_store = vector_store_factory()  # COLD tier: aged-out facts, preserved (never deleted)
-        self.summary_vec = vector_store_factory()  # L2 session summaries, retrievable for a lean read slice
-        self.graph = graph_store_factory()
+        self._backend = store_backend
+        if store_backend is not None:
+            self.episodes_doc = store_backend.doc()
+            self.episodes_vec = store_backend.vector("episodes")
+            self.fact_store = store_backend.vector("facts")
+            self.cold_store = store_backend.vector("cold")
+            self.summary_vec = store_backend.vector("summary")
+            self.graph = store_backend.graph()
+        else:
+            self.episodes_doc = InMemoryDocStore()
+            self.episodes_vec = vector_store_factory()
+            self.fact_store = vector_store_factory()  # HOT tier
+            self.cold_store = vector_store_factory()  # COLD tier, preserved
+            self.summary_vec = vector_store_factory()  # L2 session summaries
+            self.graph = graph_store_factory()
         self.resolver = IdentityResolver()
 
         self.summarizer = SessionSummarizer(llm)
@@ -174,28 +184,47 @@ class Memory:
                 for k, v in getattr(self, "_aliases", {}).items():
                     ex.aliases.setdefault(k, set()).update(v)
 
-    # --- persistence (so memory survives across processes/sessions; CLAUDE.md §6) ---
+    # --- persistence ---
+    def _aux_blob(self) -> dict:
+        return {
+            "resolver": self.resolver, "persona_cache": self._persona_cache,
+            "focus": self.focus, "policy": self.policy, "working_mem": self.working_mem,
+            "identity": self._identity, "aliases": self._aliases, "conflicts": self.conflicts,
+        }
+
+    def _restore_aux(self, blob: dict) -> None:
+        self.resolver = blob["resolver"]
+        self._persona_cache = blob["persona_cache"]
+        self.focus = blob.get("focus") or {"track": [], "mute": []}
+        self.policy = blob.get("policy") or {"extract_instruction": "", "extract_system": "",
+                                             "summary_system": "", "persona_system": ""}
+        self.working_mem = blob.get("working_mem") or {}
+        self._identity = blob.get("identity") or {}
+        self._aliases = {k: set(v) for k, v in (blob.get("aliases") or {}).items()}
+        self.conflicts = blob.get("conflicts") or {}
+
     def save(self, path: Optional[str] = None) -> None:
-        """Snapshot the durable stores to disk. The embedder/llm are NOT serialized — they're re-attached
-        when you reopen. Plain dataclasses + dicts, so it's a single pickle."""
-        import os
+        """Persist state. With a DB backend the stores are already durable, so only the aux state is
+        written; otherwise the whole snapshot is pickled to `path`."""
         import pickle
+
+        if self._backend is not None:
+            self._backend.meta_save(pickle.dumps(self._aux_blob()))
+            return
+        import os
 
         path = path or self._persist_path
         if not path:
             raise ValueError("no path to save to")
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        blob = {
+            "episodes_doc": self.episodes_doc, "episodes_vec": self.episodes_vec,
+            "fact_store": self.fact_store, "cold_store": self.cold_store,
+            "summary_vec": self.summary_vec, "graph": self.graph,
+        }
+        blob.update(self._aux_blob())
         with open(path, "wb") as fh:
-            # Dict format (was a fixed tuple): lets us add fields like `focus` without breaking old
-            # snapshots. open() reads both shapes.
-            pickle.dump({
-                "episodes_doc": self.episodes_doc, "episodes_vec": self.episodes_vec,
-                "fact_store": self.fact_store, "cold_store": self.cold_store,
-                "summary_vec": self.summary_vec, "graph": self.graph,
-                "resolver": self.resolver, "persona_cache": self._persona_cache,
-                "focus": self.focus, "policy": self.policy, "working_mem": self.working_mem,
-                "identity": self._identity, "aliases": self._aliases, "conflicts": self.conflicts,
-            }, fh)
+            pickle.dump(blob, fh)
 
     @classmethod
     def open(cls, path: str, **kwargs) -> "Memory":
@@ -212,20 +241,26 @@ class Memory:
                 mem.episodes_doc = blob["episodes_doc"]; mem.episodes_vec = blob["episodes_vec"]
                 mem.fact_store = blob["fact_store"]; mem.cold_store = blob["cold_store"]
                 mem.summary_vec = blob["summary_vec"]; mem.graph = blob["graph"]
-                mem.resolver = blob["resolver"]; mem._persona_cache = blob["persona_cache"]
-                mem.focus = blob.get("focus") or {"track": [], "mute": []}
-                mem.policy = blob.get("policy") or {"extract_instruction": "", "extract_system": "",
-                                                    "summary_system": "", "persona_system": ""}
-                mem.working_mem = blob.get("working_mem") or {}
-                mem._identity = blob.get("identity") or {}
-                mem._aliases = {k: set(v) for k, v in (blob.get("aliases") or {}).items()}
-                mem.conflicts = blob.get("conflicts") or {}
+                mem._restore_aux(blob)
             else:  # legacy 8-tuple snapshot (pre-focus)
                 (mem.episodes_doc, mem.episodes_vec, mem.fact_store, mem.cold_store,
                  mem.summary_vec, mem.graph, mem.resolver, mem._persona_cache) = blob
             mem._rewire()
             mem._classify()  # backfill category/sensitivity on facts saved before feature ⑤
         mem._persist_path = path
+        return mem
+
+    @classmethod
+    def open_backend(cls, backend: Any, **kwargs) -> "Memory":
+        """Open a Memory whose stores live in a `StoreBackend` (e.g. Postgres). The bulk data is already
+        durable; only the pickled aux state is loaded from the backend."""
+        import pickle
+
+        mem = cls(store_backend=backend, **kwargs)
+        blob = backend.meta_load()
+        if blob:
+            mem._restore_aux(pickle.loads(blob))
+            mem._rewire()
         return mem
 
     # --- write path ---
