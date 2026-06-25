@@ -48,7 +48,7 @@ class SessionSummarizer:
         self.llm = llm
         self.max_excerpt = max_excerpt
         # The active summary system prompt. Defaults to the built-in; a Memory may swap in a per-user
-        # override from its policy (the editable "提示词" in the console).
+        # override from its policy (the editable "prompt" in the console).
         self.system = _SESSION_SUMMARY_SYSTEM
 
     def summarize(self, episode: Episode) -> str:

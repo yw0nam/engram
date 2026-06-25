@@ -20,10 +20,11 @@ from .util import fmt_date, fmt_datetime
 
 DEFAULT_DATA_DIR = os.path.expanduser("~/.engram/data")
 
-# Frame the assembled memory for the answerer used by /v1/recall (the console's 问答 view).
+# Frame the assembled memory for the answerer used by /v1/recall (the console's Q&A view).
 _ANSWER_SYSTEM = (
-    "你是用户的记忆助手。只依据下面提供的【记忆】回答用户的问题,简洁、准确、口语化。"
-    "带日期的事实里最新的优先(这是知识更新);如果记忆里确实没有相关信息,就直接说「记忆里暂时没有这条」。"
+    "You are the user's memory assistant. Answer the user's question using ONLY the MEMORY provided below, "
+    "concisely and accurately. When dated facts disagree, prefer the most recent one (knowledge updates). "
+    "If the memory has nothing relevant, say so plainly."
 )
 
 
@@ -33,18 +34,18 @@ def _answer_from_memory(answerer, query: str, ctx: str) -> str:
     if answerer is None or not ctx.strip():
         return ""
     try:
-        return answerer.complete(f"【记忆】\n{ctx}\n\n【问题】{query}", system=_ANSWER_SYSTEM).strip()
+        return answerer.complete(f"MEMORY:\n{ctx}\n\nQUESTION: {query}", system=_ANSWER_SYSTEM).strip()
     except Exception:  # noqa: BLE001 -- never let answering break recall
         return ""
 
 
 def _est_tokens(text: str) -> int:
-    """A token estimate that's fair for Chinese: each CJK char ≈ 1 token + each non-CJK word ≈ 1 token.
-    (`len(text.split())` undercounts Chinese badly since it isn't whitespace-separated.)"""
+    """A token estimate that's fair for CJK text: each CJK char ≈ 1 token + each non-CJK word ≈ 1 token.
+    (`len(text.split())` undercounts CJK text badly since it isn't whitespace-separated.)"""
     import re
 
-    cjk = len(re.findall(r"[一-鿿]", text))
-    words = len(re.findall(r"[A-Za-z0-9]+", re.sub(r"[一-鿿]", " ", text)))
+    cjk = len(re.findall(r"[\u4e00-\u9fff]", text))
+    words = len(re.findall(r"[A-Za-z0-9]+", re.sub(r"[\u4e00-\u9fff]", " ", text)))
     return cjk + words
 
 
@@ -72,7 +73,7 @@ class MemoryService:
         self.embedder = make_embedder(embedder_name or os.environ.get("ENGRAM_EMBEDDER", "bge-small"))
         name = llm_name if llm_name is not None else os.environ.get("ENGRAM_LLM", "")
         self.llm = make_llm(name) if name else None  # no LLM -> deterministic rule extractor
-        # answerer for /v1/recall (the console's 问答) — a stronger model than the extractor when set;
+        # answerer for /v1/recall (the console's Q&A) — a stronger model than the extractor when set;
         # otherwise reuse the main LLM. Lets the Ask page show a real answer, not just the context.
         answerer_name = os.environ.get("ENGRAM_ANSWERER", "")
         self.answerer = make_llm(answerer_name) if answerer_name else self.llm
@@ -211,7 +212,7 @@ class MemoryService:
         """A small retrieved context (lean) or a direct factual answer (lean=False). When `session_id` is
         set, the lean context also surfaces that session's ephemeral working memory.
 
-        `answer=True` (the HTTP /v1/recall path, for the console's 问答 view) additionally generates a
+        `answer=True` (the HTTP /v1/recall path, for the console's Q&A view) additionally generates a
         real answer over that context AND reports the full-context baseline token count, so the UI can
         show the token saving. It costs one extra LLM call, so the MCP/OpenAI-compat surfaces — which
         only need the context to inject — leave it off (the default)."""
@@ -302,7 +303,7 @@ class MemoryService:
     def memories(self, user: str) -> dict:
         """Everything stored for this user: profile, counts, bi-temporal facts (live + superseded with
         provenance), raw episodes + L2 summaries. The 'look inside my memory' payload."""
-        from .localize import display_of  # localized rendering for Chinese-recorded facts
+        from .localize import display_of  # display rendering for stored facts
 
         mem = self.get(user)
         facts = sorted(mem.fact_store.values(), key=lambda f: f.valid_at, reverse=True)

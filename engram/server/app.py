@@ -113,10 +113,10 @@ def root():
     return HTMLResponse(_VIEWER_HTML)
 
 
-_VIEWER_HTML = """<!DOCTYPE html><html lang=zh-CN><head><meta charset=utf-8>
+_VIEWER_HTML = """<!DOCTYPE html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>Engram · 我的记忆</title><style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:"PingFang SC",system-ui,sans-serif}
+<title>Engram · My Memory</title><style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif}
 body{background:#070b14;color:#eaf0ff;padding:24px;max-width:920px;margin:0 auto}
 h1{font-size:22px;margin-bottom:4px}.dim{color:#8a97b8;font-size:13px}
 .bar{display:flex;gap:8px;margin:18px 0}
@@ -152,38 +152,38 @@ input{flex:1}button{cursor:pointer;background:linear-gradient(90deg,#22d3ee,#a78
 .pbtn{margin:6px 10px 6px 0;padding:10px 16px}
 svg text{font-family:system-ui,sans-serif}
 </style></head><body>
-<h1>🧠 我的记忆 <span class=dim>Engram</span></h1>
-<p class=dim>输入你的 API key,看 / 编辑 / 删除你自己的记忆。你手动改的会被锁定 🔒,不会被自动覆盖。</p>
-<div class=bar><input id=key placeholder="API key(开放模式下随便填,比如 1)" value="1">
-<button onclick=load()>查看我的记忆</button></div>
-<div class=add><input id=msg placeholder="存一条新记忆,例如:我下周要去东京出差">
-<button onclick=remember()>记住</button></div>
+<h1>🧠 My Memory <span class=dim>Engram</span></h1>
+<p class=dim>Enter your API key to view / edit / delete your own memory. Anything you change by hand is locked 🔒 and won't be auto-overwritten.</p>
+<div class=bar><input id=key placeholder="API key (in open mode, type anything, e.g. 1)" value="1">
+<button onclick=load()>View my memory</button></div>
+<div class=add><input id=msg placeholder="Save a new memory, e.g. I'm traveling to Tokyo next week">
+<button onclick=remember()>Remember</button></div>
 <div id=out></div>
 <script>
 const esc=s=>(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 const api=(p,m,b)=>fetch(p,{method:m||'GET',headers:{'Authorization':'Bearer '+key.value,'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined}).then(r=>r.json());
 async function load(){
   const d=await api('/v1/memories'); const c=d.counts||{};
-  out.innerHTML=`<div class=card><span class=stat><b>${c.facts_live||0}</b> 当前事实</span>
-   <span class=stat><b>${c.facts_superseded||0}</b> 历史</span>
-   <span class=stat><b>${c.episodes||0}</b> 对话</span>
-   <span class=stat><b>${c.summaries||0}</b> 摘要</span></div>
-   <div class=card><h3>用户画像</h3><pre>${esc(d.profile)||'(空)'}</pre></div>
-   <div class=card><h3>事实 · 双时间轴 <span class=dim style="text-transform:none;letter-spacing:0">(✏️改 / 🗑️删,改过即锁定)</span></h3>${(d.facts||[]).map(f=>
-     `<div class=f><span class="tg ${f.status=='live'?'live':'old'}">${f.status=='live'?'当前':'历史'}</span>
+  out.innerHTML=`<div class=card><span class=stat><b>${c.facts_live||0}</b> current facts</span>
+   <span class=stat><b>${c.facts_superseded||0}</b> history</span>
+   <span class=stat><b>${c.episodes||0}</b> conversations</span>
+   <span class=stat><b>${c.summaries||0}</b> summaries</span></div>
+   <div class=card><h3>User profile</h3><pre>${esc(d.profile)||'(empty)'}</pre></div>
+   <div class=card><h3>Facts · bi-temporal <span class=dim style="text-transform:none;letter-spacing:0">(✏️ edit / 🗑️ delete; editing locks it)</span></h3>${(d.facts||[]).map(f=>
+     `<div class=f><span class="tg ${f.status=='live'?'live':'old'}">${f.status=='live'?'current':'history'}</span>
       <span class=dt>${f.valid_at}</span>
-      <span>${esc(f.text)}${f.source=='user'?'<span class=lock>🔒 我设定</span>':''}${f.invalid_at?' <span class=dim>→失效 '+f.invalid_at+'</span>':''}</span>
+      <span>${esc(f.text)}${f.source=='user'?'<span class=lock>🔒 set by me</span>':''}${f.invalid_at?' <span class=dim>→ retired '+f.invalid_at+'</span>':''}</span>
       <span class=act><button class=ib onclick="editFact('${f.id}','${esc(f.subject)}','${esc(f.predicate)}','${esc(f.object)}')">✏️</button>
       <button class="ib del" onclick="delFact('${f.id}')">🗑️</button></span></div>`).join('')}
-      <div class=addf><input id=ns placeholder="主语(默认 user)"><input id=np placeholder="谓语,如 works_at"><input id=no placeholder="宾语,如 字节跳动">
-      <button onclick=addFact()>＋ 手动加一条</button></div></div>
-   <div class=card><h3>原始对话 + 摘要</h3>${(d.episodes||[]).map(e=>
-     `<div class=f><span class=dt>${e.date}</span><span>${esc(e.content)}${e.summary?'<br><span class=dim>摘要: '+esc(e.summary)+'</span>':''}</span></div>`).join('')}</div>`;
+      <div class=addf><input id=ns placeholder="subject (default user)"><input id=np placeholder="predicate, e.g. works_at"><input id=no placeholder="object, e.g. Naver">
+      <button onclick=addFact()>＋ Add one manually</button></div></div>
+   <div class=card><h3>Raw conversations + summaries</h3>${(d.episodes||[]).map(e=>
+     `<div class=f><span class=dt>${e.date}</span><span>${esc(e.content)}${e.summary?'<br><span class=dim>summary: '+esc(e.summary)+'</span>':''}</span></div>`).join('')}</div>`;
 }
 async function remember(){ if(!msg.value)return; await api('/v1/remember','POST',{content:msg.value}); msg.value=''; load(); }
 async function addFact(){ if(!np.value||!no.value)return; await api('/v1/facts','POST',{subject:ns.value||'user',predicate:np.value,object:no.value}); load(); }
-async function editFact(id,s,p,o){ const nv=prompt('改成什么(宾语):',o); if(nv==null||nv===o)return; await api('/v1/facts/'+id,'PATCH',{object:nv}); load(); }
-async function delFact(id){ if(!confirm('永久删除这条记忆?'))return; await api('/v1/facts/'+id,'DELETE'); load(); }
+async function editFact(id,s,p,o){ const nv=prompt('Change to (object):',o); if(nv==null||nv===o)return; await api('/v1/facts/'+id,'PATCH',{object:nv}); load(); }
+async function delFact(id){ if(!confirm('Permanently delete this memory?'))return; await api('/v1/facts/'+id,'DELETE'); load(); }
 </script></body></html>"""
 
 
@@ -197,7 +197,7 @@ def remember(req: RememberReq, user: str = Depends(auth)):
 @app.post("/v1/recall")
 def recall(req: RecallReq, user: str = Depends(auth)):
     # answer=True: also generate a real answer over the lean context + report the full-context baseline
-    # token count, so the console's 问答 view can show the answer AND the token saving.
+    # token count, so the console's Q&A view can show the answer AND the token saving.
     return svc().recall(user, req.query, lean=req.lean, n_chunks=req.n_chunks,
                         session_id=req.session_id, answer=True)
 
@@ -210,7 +210,7 @@ def profile(user: str = Depends(auth)):
 @app.get("/v1/profile/structured")
 def structured_profile(user: str = Depends(auth)):
     """L2 structured profile: basic info + preferences (by category) + habits, split into confirmed vs
-    待确认 (tentative). Display-only tiering — does NOT affect what recall/search can see."""
+    tentative. Display-only tiering — does NOT affect what recall/search can see."""
     return svc().structured_profile(user)
 
 
@@ -339,7 +339,7 @@ def put_focus(req: FocusReq, user: str = Depends(auth)):
     return svc().set_focus(user, track=req.track, mute=req.mute)
 
 
-# --- memory policy: editable prompts + "what to record" directive (the 记忆策略 page) ---
+# --- memory policy: editable prompts + "what to record" directive (the memory-policy page) ---
 class PolicyReq(BaseModel):
     extract_instruction: Optional[str] = None  # None = leave unchanged; "" = reset to default
     extract_system: Optional[str] = None
@@ -405,7 +405,7 @@ def resolve_conflict(conflict_id: str, req: ResolveReq, user: str = Depends(auth
     return svc().resolve_conflict(user, conflict_id, keep=req.keep)
 
 
-# --- ② semantic graph for the 关系图谱 visualization ---
+# --- ② semantic graph for the relationship-graph visualization ---
 @app.get("/v1/graph")
 def graph(user: str = Depends(auth)):
     """Nodes (entities) + edges (bi-temporal relations) of this user's semantic graph."""

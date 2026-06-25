@@ -55,7 +55,7 @@ def make_llm(name: str, **overrides):
             api_key=os.environ.get("UNIVIBE_API_KEY"),
             **overrides,
         )
-    # Volcano Engine / 火山方舟 (ByteDance Ark) — OpenAI-compatible; models by name or endpoint id (ep-...)
+    # Volcano Engine (ByteDance Ark) — OpenAI-compatible; models by name or endpoint id (ep-...)
     if n.startswith(("volcano:", "ark:", "doubao:")):
         return LiteLLMClient(
             f"openai/{n.split(':', 1)[1]}",

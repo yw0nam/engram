@@ -43,8 +43,8 @@ class Fact:
     predicate: str
     object: str
     text: str = ""  # canonical English-predicate rendering, e.g. "Wei works_at Moonshot AI" (embeds/retrieves)
-    # native-language one-line phrasing from extraction (e.g. "李雷在字节跳动工作"), shown in the UI. Empty
-    # for old facts / offline extraction => the display layer localizes from the predicate instead.
+    # one-line phrasing from extraction (e.g. "Jin works at Naver"), shown in the UI. Empty
+    # for old facts / offline extraction => the display layer renders from the predicate instead.
     display: str = ""
     user_id: str = "default"
     embedding: Optional[list[float]] = None

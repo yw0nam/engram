@@ -11,20 +11,19 @@ import re
 
 # category -> (predicate keywords, object/text keywords). First match wins; order = priority.
 _CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
-    ("健康", ("allerg", "disease", "condition", "diagnos", "medication", "symptom", "pregnan", "disab",
-              "diabet", "blood_type", "health", "病", "过敏", "怀孕", "孕", "残疾", "症", "药")),
-    ("财务", ("salary", "income", "wage", "bank", "credit_card", "debt", "net_worth", "mortgage",
-              "invest", "工资", "收入", "薪", "银行", "信用卡", "负债", "存款", "理财")),
-    ("身份", ("name", "age", "gender", "sex", "birthday", "born", "nationality", "occupation", "job",
-              "profession", "education", "degree", "id_number", "passport", "ssn",
-              "姓名", "年龄", "性别", "生日", "国籍", "职业", "学历", "身份证", "护照")),
-    ("位置", ("lives_in", "home", "address", "based_in", "located", "poi", "住", "地址", "常住")),
-    ("关系", ("married", "spouse", "partner", "child", "kids", "family", "friend", "colleague", "boss",
-              "relationship", "配偶", "孩子", "家人", "朋友", "同事")),
-    ("工作", ("works_at", "employer", "company", "project", "works_on", "团队", "公司", "项目")),
-    ("偏好", ("like", "love", "enjoy", "prefer", "favorite", "favourite", "dislike", "hate", "avoid",
-              "interested", "fan_of", "喜欢", "讨厌", "偏好", "最爱")),
-    ("事件", ("visit", "went", "trip", "bought", "ordered", "attended", "plan", "booked", "去", "买", "计划")),
+    ("health", ("allerg", "disease", "condition", "diagnos", "medication", "symptom", "pregnan", "disab",
+              "diabet", "blood_type", "health")),
+    ("finance", ("salary", "income", "wage", "bank", "credit_card", "debt", "net_worth", "mortgage",
+              "invest")),
+    ("identity", ("name", "age", "gender", "sex", "birthday", "born", "nationality", "occupation", "job",
+              "profession", "education", "degree", "id_number", "passport", "ssn")),
+    ("location", ("lives_in", "home", "address", "based_in", "located", "poi")),
+    ("relationships", ("married", "spouse", "partner", "child", "kids", "family", "friend", "colleague", "boss",
+              "relationship")),
+    ("work", ("works_at", "employer", "company", "project", "works_on")),
+    ("preferences", ("like", "love", "enjoy", "prefer", "favorite", "favourite", "dislike", "hate", "avoid",
+              "interested", "fan_of")),
+    ("events", ("visit", "went", "trip", "bought", "ordered", "attended", "plan", "booked")),
 ]
 
 # Sensitivity: predicate or content hits a protected/PII class. Health, finance, credentials, and legally
@@ -32,15 +31,14 @@ _CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
 _SENSITIVE_KW: tuple[str, ...] = (
     # health
     "allerg", "disease", "diagnos", "medication", "diabet", "hiv", "cancer", "depress", "anxiety",
-    "pregnan", "disab", "mental", "blood_type", "symptom", "病", "过敏", "怀孕", "抑郁", "残疾", "药",
+    "pregnan", "disab", "mental", "blood_type", "symptom",
     # finance
     "salary", "income", "wage", "bank_account", "credit_card", "debt", "net_worth", "mortgage",
-    "工资", "薪资", "收入", "银行卡", "信用卡", "负债", "存款",
     # credentials / national id
-    "password", "passcode", "ssn", "passport", "id_number", "secret", "密码", "身份证", "护照", "密钥",
+    "password", "passcode", "ssn", "passport", "id_number", "secret",
     # protected attributes
     "religion", "religious", "christian", "muslim", "buddhis", "political", "gay", "lesbian", "bisexual",
-    "sexual_orientation", "宗教", "政治", "性取向",
+    "sexual_orientation",
 )
 
 _SENSITIVE_PREDS = {"salary", "income", "password", "ssn", "passport", "id_number", "religion",
@@ -57,7 +55,7 @@ def classify(predicate: str, obj: str = "", text: str = "") -> tuple[str, bool]:
     p = predicate.lower()
     hay = _hay(p, obj, text)
 
-    category = "其他"
+    category = "other"
     for cat, kws in _CATEGORY_RULES:
         if any(k in hay for k in kws):
             category = cat

@@ -18,24 +18,24 @@ from ..types import Fact
 
 # predicate -> (canonical field key, human label). Identity / basic-info slots (single-valued).
 _BASIC: dict[str, tuple[str, str]] = {
-    "name": ("name", "姓名"),
-    "age": ("age", "年龄"), "age_range": ("age", "年龄"),
-    "gender": ("gender", "性别"), "sex": ("gender", "性别"),
-    "occupation": ("occupation", "职业"), "job": ("occupation", "职业"),
-    "profession": ("occupation", "职业"), "works_as": ("occupation", "职业"),
-    "works_at": ("employer", "工作单位"), "employer": ("employer", "工作单位"),
-    "company": ("employer", "工作单位"),
-    "lives_in": ("home", "常住地"), "home": ("home", "常住地"),
-    "based_in": ("home", "常住地"), "lives_at": ("home", "常住地"),
-    "born_in": ("birthplace", "出生地"), "birthplace": ("birthplace", "出生地"),
-    "birthday": ("birthday", "生日"), "born_on": ("birthday", "生日"), "birth_date": ("birthday", "生日"),
-    "married_to": ("spouse", "配偶"), "spouse": ("spouse", "配偶"),
-    "has_child": ("children", "子女"), "has_children": ("children", "子女"),
-    "children": ("children", "子女"), "kids": ("children", "子女"),
-    "nationality": ("nationality", "国籍"),
-    "speaks": ("language", "语言"), "language": ("language", "语言"),
-    "education": ("education", "教育"), "studied_at": ("education", "教育"),
-    "graduated_from": ("education", "教育"), "degree": ("education", "教育"),
+    "name": ("name", "Name"),
+    "age": ("age", "Age"), "age_range": ("age", "Age"),
+    "gender": ("gender", "Gender"), "sex": ("gender", "Gender"),
+    "occupation": ("occupation", "Occupation"), "job": ("occupation", "Occupation"),
+    "profession": ("occupation", "Occupation"), "works_as": ("occupation", "Occupation"),
+    "works_at": ("employer", "Employer"), "employer": ("employer", "Employer"),
+    "company": ("employer", "Employer"),
+    "lives_in": ("home", "Home"), "home": ("home", "Home"),
+    "based_in": ("home", "Home"), "lives_at": ("home", "Home"),
+    "born_in": ("birthplace", "Birthplace"), "birthplace": ("birthplace", "Birthplace"),
+    "birthday": ("birthday", "Birthday"), "born_on": ("birthday", "Birthday"), "birth_date": ("birthday", "Birthday"),
+    "married_to": ("spouse", "Spouse"), "spouse": ("spouse", "Spouse"),
+    "has_child": ("children", "Children"), "has_children": ("children", "Children"),
+    "children": ("children", "Children"), "kids": ("children", "Children"),
+    "nationality": ("nationality", "Nationality"),
+    "speaks": ("language", "Language"), "language": ("language", "Language"),
+    "education": ("education", "Education"), "studied_at": ("education", "Education"),
+    "graduated_from": ("education", "Education"), "degree": ("education", "Education"),
 }
 
 _POSITIVE = {"likes", "like", "loves", "love", "enjoys", "enjoy", "prefers", "prefer", "favorite",
@@ -46,24 +46,19 @@ _HABIT = {"usually", "often", "routine", "regularly", "habit", "tends_to", "comm
           "daily", "weekly", "every_day", "every_week", "every_morning"}
 
 # coarse category buckets for grouping preferences (keyword match on predicate + object)
-# keyword -> category, EN + ZH. First match wins, so ORDER matters: a phrase like "有游泳池的酒店"
-# contains both 酒店(出行) and 游泳(运动) — putting 出行 before 运动 keeps it under 出行.
+# keyword -> category. First match wins, so ORDER matters: a phrase mentioning both a hotel and a pool
+# stays under travel because travel is listed before sports.
 _CATEGORY_KW: list[tuple[str, tuple[str, ...]]] = [
-    ("健康禁忌", ("allergic", "allergy", "intoleran", "过敏", "忌口", "禁忌")),
-    ("饮食", ("food", "eat", "cuisine", "dish", "restaurant", "drink", "coffee", "tea", "spicy",
-              "seafood", "meal", "cook", "snack", "fruit",
-              "吃", "餐", "菜", "料", "火锅", "辣", "香菜", "甜", "咖啡", "茶", "清淡", "评分", "人均", "口味")),
-    ("出行", ("travel", "trip", "destination", "hotel", "route", "drive", "flight", "scenery", "poi",
-              "酒店", "住宿", "民宿", "高架", "路线", "停车", "充电", "景点", "旅游", "出差", "导航", "自驾")),
-    ("音乐", ("music", "song", "artist", "singer", "band", "genre", "playlist",
-              "歌", "音乐", "曲", "电音", "流行", "周杰伦", "五月天", "华语", "粤语", "民谣", "摇滚")),
-    ("影视", ("movie", "film", "show", "tv", "series", "video", "cinema", "drama", "director",
-              "片", "电影", "电视剧", "影视", "恐怖", "科幻", "诺兰", "导演", "综艺", "动画")),
-    ("运动", ("sport", "exercise", "gym", "run", "fitness", "yoga", "basketball", "football", "hike",
-              "跑步", "游泳", "健身", "篮球", "足球", "瑜伽", "运动", "球", "爬山", "登山")),
-    ("阅读", ("book", "read", "author", "novel", "podcast", "news", "书", "阅读", "新闻", "播客", "股票")),
-    ("兴趣", ("跳舞", "探店", "摄影", "自拍", "烘焙", "绘画", "手工")),
-    ("环境", ("安静", "氛围", "环境", "嘈杂", "空调", "温度", "座椅", "加热")),
+    ("health_restrictions", ("allergic", "allergy", "intoleran")),
+    ("food", ("food", "eat", "cuisine", "dish", "restaurant", "drink", "coffee", "tea", "spicy",
+              "seafood", "meal", "cook", "snack", "fruit")),
+    ("travel", ("travel", "trip", "destination", "hotel", "route", "drive", "flight", "scenery", "poi")),
+    ("music", ("music", "song", "artist", "singer", "band", "genre", "playlist")),
+    ("film_tv", ("movie", "film", "show", "tv", "series", "video", "cinema", "drama", "director")),
+    ("sports", ("sport", "exercise", "gym", "run", "fitness", "yoga", "basketball", "football", "hike")),
+    ("reading", ("book", "read", "author", "novel", "podcast", "news")),
+    ("hobbies", ("dance", "photography", "selfie", "baking", "painting", "crafts")),
+    ("environment", ("quiet", "atmosphere", "ambience", "noisy", "air_conditioning", "temperature", "seating")),
 ]
 
 
@@ -100,7 +95,7 @@ def _category(pred: str, obj: str) -> str:
     for cat, kws in _CATEGORY_KW:
         if any(k in hay for k in kws):
             return cat
-    return "其他"
+    return "other"
 
 
 def _evidence(f: Fact) -> dict:
@@ -114,10 +109,10 @@ def _evidence(f: Fact) -> dict:
 
 
 def _confirmed(f: Fact) -> bool:
-    """Whether a preference shows in the canonical profile vs sits as a 待确认 candidate (display-only,
+    """Whether a preference shows in the canonical profile vs sits as a tentative candidate (display-only,
     never gates retrieval). An EXPLICITLY STATED preference is confirmed — the user said it, it isn't a
-    shaky inference (the PRD treats 主动写入 as confidence 1.0). 待确认 is reserved for genuinely weak
-    signals (e.g. a future passive-inference path emitting sub-1.0 confidence)."""
+    shaky inference (a user-asserted write is treated as confidence 1.0). Tentative is reserved for
+    genuinely weak signals (e.g. a future passive-inference path emitting sub-1.0 confidence)."""
     if f.source == "user":
         return True
     if _polarity(f.predicate) is not None:  # an explicitly stated like / dislike / favorite / allergy
@@ -127,14 +122,14 @@ def _confirmed(f: Fact) -> bool:
     return False
 
 
-# Universal first-person / user references (EN + ZH coreference). These denote THE USER — not a
+# Universal first-person / user references (EN + KO + JA coreference). These denote THE USER — not a
 # special case but the basic identity-resolution every memory system needs. Facts about other people
-# (儿子/外婆/朋友 ...) simply aren't in this set, so they're excluded without any kinship list or guessing.
-USER_REFS = {"user", "用户", "i", "我", "me", "myself", "本人", "自己", "俺"}
+# (son/grandmother/friend ...) simply aren't in this set, so they're excluded without any kinship list.
+USER_REFS = {"user", "i", "me", "myself", "나", "내", "제", "私", "僕", "俺", "わたし", "ぼく"}
 
 
 def user_aliases(subject: str, user_id: str) -> set[str]:
-    """Subjects that denote the user: the resolved self-name (e.g. 李雷) + the user_id + USER_REFS.
+    """Subjects that denote the user: the resolved self-name + the user_id + USER_REFS.
     Relies on extraction having normalized first-person subjects to the self-name (see LLMExtractor)."""
     return {subject.lower(), user_id.lower()} | USER_REFS
 
@@ -178,9 +173,9 @@ def build_structured_profile(facts: list[Fact], subject: str, user_id: str = "de
             habits.append({"text": f.text, "evidence": _evidence(f), "fact_id": f.id})
 
     # The user's name is resolved into the identity (self-name) rather than stored as a fact, so surface
-    # it in 基本信息 explicitly when we have it (and no name fact already provided one).
+    # it in basic info explicitly when we have it (and no name fact already provided one).
     if "name" not in basic and subject and subject.lower() not in (USER_REFS | {user_id.lower()}):
-        basic["name"] = {"field": "name", "label": "姓名", "value": subject,
+        basic["name"] = {"field": "name", "label": "Name", "value": subject,
                          "evidence": {"kind": "mentions", "count": 1}, "source": "extracted", "fact_id": ""}
     for b in basic.values():
         b.pop("_rank", None)

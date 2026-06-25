@@ -16,9 +16,10 @@ from ..types import Conflict, Fact
 from ..util import cosine
 
 _JUDGE_SYSTEM = (
-    "你判断关于同一个人的两条记忆是否冲突——即其中一条是否更新/否定/取代了另一条(同一属性的新值、"
-    "偏好反转、地址/职业/称呼变更等),还是两者可以同时成立(不同的事、互补的偏好)。"
-    "只回复一个词:CONFLICT 或 COEXIST。拿不准就回 COEXIST。"
+    "Judge whether two memories about the SAME person conflict — i.e. one updates/negates/supersedes the "
+    "other (a new value for the same attribute, a reversed preference, a changed address/job/name), or "
+    "whether both can hold at once (different things, complementary preferences). "
+    "Reply with ONE word only: CONFLICT or COEXIST. When unsure, reply COEXIST."
 )
 
 
@@ -55,7 +56,7 @@ def detect_conflicts(facts: list[Fact], llm: LLM, user_id: str, seen: set[tuple]
     conflicts: list[Conflict] = []
     for a, b in candidates[:max_calls]:
         try:
-            verdict = llm.complete(f"A: {a.text}\nB: {b.text}\n\n它们冲突吗?", system=_JUDGE_SYSTEM)
+            verdict = llm.complete(f"A: {a.text}\nB: {b.text}\n\nDo they conflict?", system=_JUDGE_SYSTEM)
         except Exception:  # noqa: BLE001 -- detection must never break consolidation
             continue
         if "conflict" not in verdict.strip().lower():

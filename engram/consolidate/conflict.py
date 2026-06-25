@@ -152,11 +152,11 @@ class ConflictResolver:
         invalidated: list[Fact] = []
 
         # PREFERENCE REVERSAL: an opposite-polarity preference about the SAME object supersedes the old
-        # stance ("我喜欢跳舞" then "我不喜欢跳舞" -> only the dislike stays). Predicates differ (likes vs
-        # dislikes -> different slots) and the object is identical (so the semantic path skips it), so this
-        # contradiction is otherwise missed and both coexist. Multi-valued accumulation is unaffected:
+        # stance ("I like dancing" then "I don't like dancing" -> only the dislike stays). Predicates differ
+        # (likes vs dislikes -> different slots) and the object is identical (so the semantic path skips it),
+        # so this contradiction is otherwise missed and both coexist. Multi-valued accumulation is unaffected:
         # DIFFERENT objects (likes pizza + likes pasta) still coexist; only a like<->dislike flip on the
-        # SAME object resolves. (PRD 治理: "修正否定" / "用户表达了与已有记忆相反的偏好".)
+        # SAME object resolves. (governance: a corrective negation / a preference opposite to an existing one.)
         new_pol = _pref_polarity(new.predicate)
         if new_pol is not None:
             for old in live:
@@ -208,7 +208,7 @@ class ConflictResolver:
                         # NEVER fuzzy-supersede an unrelated fact across slots — it can only update the SAME
                         # slot (the exact-slot path above). Otherwise adding pinned fact A about a subject
                         # retires an unrelated single-valued fact B about the same subject just because they
-                        # embed near (subject-dominated similarity, esp. short Chinese facts). LongMemEval
+                        # embed near (subject-dominated similarity, esp. short facts). LongMemEval
                         # ingests only extracted facts (no source="user"), so this is zero benchmark risk.
                         continue  # handled by exact-slot / identical slot / user-protected / pin guard
                     if _norm(old.subject) != _norm(new.subject) or _norm(old.object) == _norm(new.object):
@@ -216,9 +216,9 @@ class ConflictResolver:
                     if not is_single_valued(old.predicate) or not old.embedding:
                         continue
                     # CO-STATED guard: two facts extracted from the SAME episode were asserted together, so
-                    # they are complementary attributes (e.g. works_at 字节跳动 + job_title 后端开发 from one
-                    # sentence), NOT a contradiction/update. The embedding path otherwise over-merges short,
-                    # topically-similar facts — especially in Chinese — so never let it supersede across a
+                    # they are complementary attributes (e.g. works_at Naver + job_title backend_developer
+                    # from one sentence), NOT a contradiction/update. The embedding path otherwise over-merges
+                    # short, topically-similar facts, so never let it supersede across a
                     # shared source. A genuine update arrives in a LATER, SEPARATE episode.
                     if new_prov and new_prov & set(old.provenance):
                         continue
